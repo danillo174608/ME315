@@ -1,0 +1,108 @@
+---
+title: "LAB02"
+author: "Danillo dos Santos Lemes (174608)"
+format: pdf
+editor: visual
+---
+
+```{r}
+library(readr)
+library(dplyr)
+library(devtools)
+library(ggcal)
+library(ggplot2)
+```
+
+1\) Quais são as estatísticas suficientes para a determinação do percentual de vôos atrasados na chegada (`ARRIVAL_DELAY > 10`)?
+
+R: As estatísticas suficientes para a determinação percentual é a contagem de cada grupo, que seria o total de voos e a soma dos voos atrasados em mais de 10 minutos, logo o percentual de atraso é obtido por meio da razão entre voos atrasados e o total.
+
+2\)
+
+```{r}
+getStats <- function(input, pos) {
+  input %>% 
+    filter(AIRLINE %in% c("AA", "DL", "UA", "US")) %>%
+    filter(!is.na(ARRIVAL_DELAY),
+           !is.na(DAY),
+           !is.na(MONTH),
+           !is.na(AIRLINE)) %>%
+  group_by(DAY, MONTH, AIRLINE) %>%
+    summarise(
+      n_total = n(),
+      n_atrasado = sum(ARRIVAL_DELAY > 10),
+      .groups = "drop"
+    )
+}
+```
+
+3\)
+
+```{r}
+stats_acumuladas <- read_csv_chunked(
+  file        = "flights.csv.zip",             
+  callback    = DataFrameCallback$new(getStats), 
+  chunk_size  = 100000,                         
+  col_types   =  cols_only(
+  MONTH = col_integer(),
+  DAY = col_integer(),
+  AIRLINE = col_character(),
+  ARRIVAL_DELAY = col_double()
+),                       
+)
+```
+
+4\)
+
+```{r}
+computeStats <- function(data_stats) {
+  data_stats %>%
+    group_by(AIRLINE, MONTH, DAY) %>%
+    summarise(
+      total_atrasados = sum(n_atrasado),
+      total_voos      = sum(n_total),
+      .groups         = "drop"
+    ) %>%
+    transmute(
+      Cia  = AIRLINE,
+      Data = as.Date(sprintf("2015-%02d-%02d", MONTH, DAY)),
+      Perc = total_atrasados / total_voos
+    ) 
+}
+ 
+statos_finais <- computeStats(stats_acumuladas)
+```
+
+5\)
+
+```{r}
+pal <- scale_fill_gradient(
+  low = "#4575b4", 
+  high = "#d73027"
+)
+
+baseCalendario <- function(stats, cia) {
+  sub_stats <- stats %>% 
+    filter(Cia == cia)
+  
+  ggcal(sub_stats$Data, sub_stats$Perc)
+}
+
+cAA <- baseCalendario(statos_finais, "AA")
+cDL <- baseCalendario(statos_finais, "DL")
+cUA <- baseCalendario(statos_finais, "UA")
+cUS <- baseCalendario(statos_finais, "US")
+
+cAA + pal + ggtitle("Percentual de Atrasos na Chegada (2015) - American Airlines (AA)")
+
+cDL + pal + ggtitle("Percentual de Atrasos na Chegada (2015) - Delta Air Lines (DL)")
+
+cUA + pal + ggtitle("Percentual de Atrasos na Chegada (2015) - United Airlines (UA)")
+
+cUS + pal + ggtitle("Percentual de Atrasos na Chegada (2015) - US Airways (US)")
+```
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
