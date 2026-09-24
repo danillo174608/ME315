@@ -1,0 +1,101 @@
+---
+title: "LAB07"
+author: "Danillo dos Santos Lemes"
+format: pdf
+editor: visual
+---
+
+1.  Baixe o arquivo `uwmadison.sqlite3`. Conecte-se a ele usando o pacote `RSQLite`, armazenando a conexão em uma variável `conn`.
+```{r}
+library(RSQLite)
+
+conn <- dbConnect(SQLite(),"uwmadison.sqlite3")
+```
+
+
+2.  Quem são e quantos são os professores que lecionaram disciplinas cujo tópico era estatística (`subjects.abbreviation='STAT'`);
+
+```{sql connection=conn}
+SELECT DISTINCT i.name, i.id FROM instructors i
+JOIN teachings t ON i.id = t.instructor_id
+JOIN sections sec ON t.section_uuid = sec.uuid
+JOIN course_offerings co ON sec.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects s ON sm.subject_code = s.code
+WHERE s.abbreviation = 'STAT'
+ORDER BY i.name;
+```
+
+3.  O GPA americano é definido numa escala de 0 a 4, em que A = 4, AB = 3.5, B = 3, BC = 2.5, C = 2, D = 1 e F = 0. Determinando a nota média de cada oferecimento pela ponderação da quantidade de alunos em cada extrato com os valores numéricos de cada conceito, indique (no que se referente a disciplinas no assunto de estatística):
+
+- Quem é o professor mais difícil?
+```{sql connection=conn}
+SELECT i.name AS professor_name, SUM(ga.a_count * 4.0 + ga.ab_count * 3.5 + ga.b_count * 3.0 + ga.bc_count * 2.5 + ga.c_count * 2.0 + ga.d_count * 1.0 + ga.f_count * 0.0) / NULLIF(SUM(ga.a_count + ga.ab_count + ga.b_count + ga.bc_count + ga.c_count + ga.d_count + ga.f_count), 0) AS gpa_medio FROM instructors i 
+JOIN teachings t ON i.id = t.instructor_id
+JOIN sections sec ON t.section_uuid = sec.uuid
+JOIN course_offerings co ON sec.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects s ON sm.subject_code = s.code
+JOIN grade_distributions ga ON sec.course_offering_uuid = ga.course_offering_uuid AND sec.number = ga.section_number
+WHERE s.abbreviation = 'STAT'
+GROUP BY i.id, i.name
+HAVING gpa_medio IS NOT NULL
+ORDER BY gpa_medio 
+LIMIT 1
+```
+
+- Quem é o professor mais fácil?
+```{sql connection=conn}
+SELECT i.name AS professor_name, SUM(ga.a_count * 4.0 + ga.ab_count * 3.5 + ga.b_count * 3.0 + ga.bc_count * 2.5 + ga.c_count * 2.0 + ga.d_count * 1.0 + ga.f_count * 0.0) / NULLIF(SUM(ga.a_count + ga.ab_count + ga.b_count + ga.bc_count + ga.c_count + ga.d_count + ga.f_count), 0) AS gpa_medio FROM instructors i 
+JOIN teachings t ON i.id = t.instructor_id
+JOIN sections sec ON t.section_uuid = sec.uuid
+JOIN course_offerings co ON sec.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects s ON sm.subject_code = s.code
+JOIN grade_distributions ga ON sec.course_offering_uuid = ga.course_offering_uuid AND sec.number = ga.section_number
+WHERE s.abbreviation = 'STAT'
+GROUP BY i.id, i.name
+HAVING gpa_medio IS NOT NULL
+ORDER BY gpa_medio DESC
+LIMIT 1
+```
+
+- Qual é a disciplina mais difícil?
+```{sql connection=conn}
+SELECT c.name AS course_name, c.number AS course_number, SUM(ga.a_count * 4.0 + ga.ab_count * 3.5 + ga.b_count * 3.0 + ga.bc_count * 2.5 + ga.c_count * 2.0 + ga.d_count * 1.0 + ga.f_count * 0.0) / NULLIF(SUM(ga.a_count + ga.ab_count + ga.b_count + ga.bc_count + ga.c_count + ga.d_count + ga.f_count), 0) AS gpa_medio FROM courses c 
+JOIN course_offerings co ON c.uuid = co.course_uuid
+JOIN grade_distributions ga ON co.uuid = ga.course_offering_uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects s ON sm.subject_code = s.code
+WHERE s.abbreviation = 'STAT'
+GROUP BY c.name, c.number
+HAVING gpa_medio IS NOT NULL
+ORDER BY gpa_medio 
+LIMIT 1 
+```
+
+
+- Qual é a disciplina mais fácil?
+```{sql connection=conn}
+SELECT c.name AS course_name, c.number AS course_number, SUM(ga.a_count * 4.0 + ga.ab_count * 3.5 + ga.b_count * 3.0 + ga.bc_count * 2.5 + ga.c_count * 2.0 + ga.d_count * 1.0 + ga.f_count * 0.0) / NULLIF(SUM(ga.a_count + ga.ab_count + ga.b_count + ga.bc_count + ga.c_count + ga.d_count + ga.f_count), 0) AS gpa_medio FROM courses c 
+JOIN course_offerings co ON c.uuid = co.course_uuid
+JOIN grade_distributions ga ON co.uuid = ga.course_offering_uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects s ON sm.subject_code = s.code
+WHERE s.abbreviation = 'STAT'
+GROUP BY c.name, c.number
+HAVING gpa_medio IS NOT NULL
+ORDER BY gpa_medio DESC
+LIMIT 1
+```
+
+
+4.  Desconecte do banco de dados
+```{r}
+dbDisconnect(conn)
+```
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
